@@ -1,91 +1,101 @@
+// routes/todos.js
 const express = require('express');
 const Todo = require('../models/Todo');
-const { multi: upload } = require('../middleware/upload');  // Use multi for fields
+const { multi: upload } = require('../middleware/upload');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinary');
 const router = express.Router();
 
-// GET all TODOs
+// GET all
 router.get('/', async (req, res) => {
   try {
-    const todos = await Todo.find();
+    const todos = await Todo.find().sort({ createdAt: -1 });
     res.json(todos);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// POST new TODO (with optional image + PDF)
+// POST new
 router.post('/', upload, async (req, res) => {
   try {
     const { text, dueDate, completed } = req.body;
     let imageUrl = '';
     let pdfUrl = '';
-    if (req.files && req.files['image']) {
-      imageUrl = await uploadToCloudinary(req.files['image'][0].path, { 
+
+    if (req.files?.image?.[0]) {
+      imageUrl = await uploadToCloudinary(req.files.image[0].buffer, {
+        resource_type: 'image',
         allowed_formats: ['jpg', 'png', 'jpeg'],
-        resource_type: 'image' 
       });
     }
-    if (req.files && req.files['pdf']) {
-      pdfUrl = await uploadToCloudinary(req.files['pdf'][0].path, { 
+
+    if (req.files?.pdf?.[0]) {
+      pdfUrl = await uploadToCloudinary(req.files.pdf[0].buffer, {
+        resource_type: 'raw',
         allowed_formats: ['pdf'],
-        resource_type: 'raw' 
       });
     }
-    const todo = new Todo({ text, dueDate, imageUrl, pdfUrl, completed: completed === 'true' });
-    const savedTodo = await todo.save();
-    res.status(201).json(savedTodo);
+
+    const todo = new Todo({
+      text,
+      dueDate,
+      imageUrl,
+      pdfUrl,
+      completed: completed === 'true',
+    });
+
+    const saved = await todo.save();
+    res.status(201).json(saved);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
 });
 
-// PUT update TODO
+// PUT update
 router.put('/:id', upload, async (req, res) => {
   try {
     const todo = await Todo.findById(req.params.id);
-    if (!todo) return res.status(404).json({ message: 'Todo not found' });
+    if (!todo) return res.status(404).json({ message: 'Not found' });
 
-    todo.text = req.body.text || todo.text;
-    todo.dueDate = req.body.dueDate || todo.dueDate;
-    todo.completed = req.body.completed !== undefined ? req.body.completed === 'true' : todo.completed;
+    todo.text = req.body.text ?? todo.text;
+    todo.dueDate = req.body.dueDate ?? todo.dueDate;
+    todo.completed =
+      req.body.completed !== undefined
+        ? req.body.completed === 'true'
+        : todo.completed;
 
-    // Handle image update
-    if (req.files && req.files['image']) {
+    if (req.files?.image?.[0]) {
       if (todo.imageUrl) await deleteFromCloudinary(todo.imageUrl);
-      todo.imageUrl = await uploadToCloudinary(req.files['image'][0].path, { 
-        allowed_formats: ['jpg', 'png', 'jpeg'],
-        resource_type: 'image' 
+      todo.imageUrl = await uploadToCloudinary(req.files.image[0].buffer, {
+        resource_type: 'image',
       });
     }
 
-    // Handle PDF update
-    if (req.files && req.files['pdf']) {
+    if (req.files?.pdf?.[0]) {
       if (todo.pdfUrl) await deleteFromCloudinary(todo.pdfUrl);
-      todo.pdfUrl = await uploadToCloudinary(req.files['pdf'][0].path, { 
-        allowed_formats: ['pdf'],
-        resource_type: 'raw' 
+      todo.pdfUrl = await uploadToCloudinary(req.files.pdf[0].buffer, {
+        resource_type: 'raw',
       });
     }
 
-    const updatedTodo = await todo.save();
-    res.json(updatedTodo);
+    const updated = await todo.save();
+    res.json(updated);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
 });
 
-// DELETE TODO
+// DELETE
 router.delete('/:id', async (req, res) => {
   try {
     const todo = await Todo.findById(req.params.id);
-    if (!todo) return res.status(404).json({ message: 'Todo not found' });
+    if (!todo) return res.status(404).json({ message: 'Not found' });
 
     if (todo.imageUrl) await deleteFromCloudinary(todo.imageUrl);
     if (todo.pdfUrl) await deleteFromCloudinary(todo.pdfUrl);
 
-    await todo.remove();
-    res.json({ message: 'Todo deleted' });
+    await Todo.deleteOne({ _id: req.params.id });
+    res.json({ message: 'Deleted' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

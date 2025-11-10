@@ -1,3 +1,4 @@
+// api/serve.js
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -7,41 +8,39 @@ dotenv.config();
 
 const app = express();
 
-// Middleware
+// Increase payload limit for file buffers
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cors());
-app.use(express.json());  
 
-
-let isConnected = false;
-async function connectToDatabase() {
-  try {
-    await mongoose.connect(process.env.MONGO_URI),{
+// Reuse MongoDB connection across warm invocations
+let conn = null;
+async function connectDB() {
+  if (conn) return conn;
+  conn = await mongoose.connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
-    useUnifiedTopology: true
-    };
-    isConnected = true;
-    console.log('MongoDB connected');
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
-  }
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 5000,
+  });
+  console.log('MongoDB connected');
+  return conn;
 }
 
-//add middleware to check connection before handling requests
+// Ensure DB is connected before route handling
 app.use(async (req, res, next) => {
-  if (!isConnected) {
-    await connectToDatabase();
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('DB connection failed:', err);
+    res.status(500).json({ message: 'Database connection failed' });
   }
-  next();
 });
 
-
 // Routes
-app.use('/api/todos', require('./routes/todos'));
+app.use('/todos', require('../routes/todos'));
 
-
-//Do not use app.listen 
-//const PORT = process.env.PORT || 5000;
-//app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
+// Health check
+app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 
 module.exports = app;

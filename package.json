@@ -1,26 +1,21 @@
 {
-  "name": "backend",
+  "name": "todo-backend-vercel",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "api/serve.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server",
-    "vercel-start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "vercel dev",
+    "build": "echo 'No build step required'"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "cloudinary": "^2.8.0",
+    "cloudinary": "^2.2.0",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
-    "express": "^5.1.0",
-    "mongoose": "^8.19.3",
-    "multer": "^2.0.2"
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongoose": "^8.5.0",
+    "multer": "^1.4.5-lts.1",
+    "streamifier": "^0.1.1"
   },
-  "devDependencies": {
-    "nodemon": "^3.1.10"
+  "engines": {
+    "node": ">=18"
   }
 }
